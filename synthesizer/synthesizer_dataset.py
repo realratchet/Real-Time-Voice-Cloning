@@ -2,6 +2,7 @@ import torch
 from torch.utils.data import Dataset
 import numpy as np
 from pathlib import Path
+from tqdm import tqdm
 from synthesizer.utils.text import text_to_sequence
 
 
@@ -11,11 +12,14 @@ class SynthesizerDataset(Dataset):
         
         with metadata_fpath.open("r") as metadata_file:
             metadata = [line.split("|") for line in metadata_file]
+
+        if hparams.reduced_dataset:
+            metadata = metadata[0:1000]
         
         mel_fnames = [x[1] for x in metadata if int(x[4])]
-        mel_fpaths = [mel_dir.joinpath(fname) for fname in mel_fnames]
+        mel_fpaths = [mel_dir.joinpath(fname) for fname in tqdm(mel_fnames, desc="mel paths")]
         embed_fnames = [x[2] for x in metadata if int(x[4])]
-        embed_fpaths = [embed_dir.joinpath(fname) for fname in embed_fnames]
+        embed_fpaths = [embed_dir.joinpath(fname) for fname in tqdm(embed_fnames, desc="embed paths")]
         self.samples_fpaths = list(zip(mel_fpaths, embed_fpaths))
         self.samples_texts = [x[5].strip() for x in metadata if int(x[4])]
         self.metadata = metadata

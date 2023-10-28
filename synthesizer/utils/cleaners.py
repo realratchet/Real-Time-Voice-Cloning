@@ -41,8 +41,8 @@ _abbreviations = [(re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1]) for x in 
 
 
 def expand_abbreviations(text):
-    for regex, replacement in _abbreviations:
-        text = re.sub(regex, replacement, text)
+    # for regex, replacement in _abbreviations:
+    #     text = re.sub(regex, replacement, text)
     return text
 
 
@@ -60,7 +60,8 @@ def collapse_whitespace(text):
 
 
 def convert_to_ascii(text):
-    return unidecode(text)
+    # return unidecode(text)
+    return text
 
 
 def basic_cleaners(text):

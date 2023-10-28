@@ -63,7 +63,7 @@ def run_synthesis(in_dir: Path, out_dir: Path, syn_model_fpath: Path, hparams):
 
     dataset = SynthesizerDataset(metadata_fpath, mel_dir, embed_dir, hparams)
     collate_fn = partial(collate_synthesizer, r=r, hparams=hparams)
-    data_loader = DataLoader(dataset, hparams.synthesis_batch_size, collate_fn=collate_fn, num_workers=2)
+    data_loader = DataLoader(dataset, 8, collate_fn=collate_fn, num_workers=2)
 
     # Generate GTA mels
     meta_out_fpath = out_dir / "synthesized.txt"
@@ -84,6 +84,8 @@ def run_synthesis(in_dir: Path, out_dir: Path, syn_model_fpath: Path, hparams):
 
                 # Use the length of the ground truth mel to remove padding from the generated mels
                 mel_out = mel_out[:int(dataset.metadata[k][4])]
+
+                mel_filename.parent.mkdir(parents=True, exist_ok=True)
 
                 # Write the spectrogram to disk
                 np.save(mel_filename, mel_out, allow_pickle=False)

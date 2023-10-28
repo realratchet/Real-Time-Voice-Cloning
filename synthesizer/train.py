@@ -8,7 +8,7 @@ from torch import optim
 from torch.utils.data import DataLoader
 
 from synthesizer import audio
-from synthesizer.models.tacotron import Tacotron
+from synthesizer.models.tacotron import Tacotron, SynthEmbedding
 from synthesizer.synthesizer_dataset import SynthesizerDataset, collate_synthesizer
 from synthesizer.utils import ValueWindow, data_parallel_workaround
 from synthesizer.utils.plot import plot_spectrogram
@@ -77,7 +77,8 @@ def train(run_id: str, syn_dir: Path, models_dir: Path, save_every: int,  backup
                      num_highways=hparams.tts_num_highways,
                      dropout=hparams.tts_dropout,
                      stop_threshold=hparams.tts_stop_threshold,
-                     speaker_embedding_size=hparams.speaker_embedding_size).to(device)
+                     speaker_embedding_size=hparams.speaker_embedding_size,
+                     use_mel_inputs=hparams.use_mel_inputs).to(device)
 
     # Initialize the optimizer
     optimizer = optim.Adam(model.parameters())
@@ -152,10 +153,16 @@ def train(run_id: str, syn_dir: Path, models_dir: Path, save_every: int,  backup
                 for j, k in enumerate(idx):
                     stop[j, :int(dataset.metadata[k][4])-1] = 0
 
-                texts = texts.to(device)
                 mels = mels.to(device)
                 embeds = embeds.to(device)
                 stop = stop.to(device)
+
+                # if isinstance(model.encoder.embedding, SynthEmbedding):
+                #     texts = mels.to(device)
+                # else:
+                #     texts = texts.to(device)
+
+                texts = texts.to(device)
 
                 # Forward pass
                 # Parallelize model onto GPUS using workaround due to python bug

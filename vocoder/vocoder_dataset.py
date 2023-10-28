@@ -4,7 +4,7 @@ from vocoder import audio
 import vocoder.hparams as hp
 import numpy as np
 import torch
-
+from tqdm import tqdm
 
 class VocoderDataset(Dataset):
     def __init__(self, metadata_fpath: Path, mel_dir: Path, wav_dir: Path):
@@ -14,9 +14,9 @@ class VocoderDataset(Dataset):
             metadata = [line.split("|") for line in metadata_file]
         
         gta_fnames = [x[1] for x in metadata if int(x[4])]
-        gta_fpaths = [mel_dir.joinpath(fname) for fname in gta_fnames]
+        gta_fpaths = [mel_dir.joinpath(fname) for fname in tqdm(gta_fnames, desc="gta_fnames")]
         wav_fnames = [x[0] for x in metadata if int(x[4])]
-        wav_fpaths = [wav_dir.joinpath(fname) for fname in wav_fnames]
+        wav_fpaths = [wav_dir.joinpath(fname) for fname in tqdm(wav_fnames, desc="wav_fnames")]
         self.samples_fpaths = list(zip(gta_fpaths, wav_fpaths))
         
         print("Found %d samples" % len(self.samples_fpaths))

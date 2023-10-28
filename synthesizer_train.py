@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from synthesizer.hparams import hparams
+from synthesizer.hparams import synth_hparams
 from synthesizer.train import train
 from utils.argutils import print_args
 import argparse
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print_args(args, parser)
 
-    args.hparams = hparams.parse(args.hparams)
+    args.hparams = synth_hparams.parse(args.hparams)
 
     # Run the training
     train(**vars(args))

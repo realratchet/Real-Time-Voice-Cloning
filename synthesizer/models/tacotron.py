@@ -22,6 +22,67 @@ class HighwayNetwork(nn.Module):
         return y
 
 
+class SynthEmbedding(nn.Module):
+    def __init__(self, embedding_dim):
+        super().__init__()
+
+        self.partial = nn.Sequential(
+            nn.Conv1d(80, 64, 3, 2),
+            nn.ReLU(),
+            nn.Conv1d(64, 128, 2, 2),
+            nn.ReLU(),
+            nn.Conv1d(128, 256, 1, 2),
+            nn.ReLU(),
+        )
+
+        self.final_features = nn.Sequential(
+            nn.Conv1d(256, 64, 3, 2),
+            nn.ReLU(),
+            nn.Conv1d(64, 128, 2, 2),
+            nn.ReLU(),
+            nn.Conv1d(128, embedding_dim, 1, 2),
+            nn.ReLU(),
+        )
+
+        # self.embedder = nn.Sequential(
+        #     nn.Linear(4096, 1024),
+        #     nn.ReLU(),
+        #     nn.Linear(1024, embedding_dim),
+        #     nn.ReLU(),
+        # )
+
+    def forward(self, inp):
+        arr = []
+        _, _, sz = inp.shape
+        step_size = 128
+        padded_size = 128
+
+        for a, b in ((i * step_size, (i+1) * step_size) for i in range((sz // step_size) + 1)):
+            slice_ = inp[..., a:b]
+            _, _, sz = slice_.shape
+            if sz < 6:
+                slice_ = F.pad(slice_, (0, 6-sz, 0, 0, 0, 0))
+            y = self.partial(slice_)
+
+            arr.append(y)
+
+        concatenated = torch.concat(arr, axis=-1)
+        b, _, sz = concatenated.shape
+
+        if sz > padded_size:
+            raise Exception("overflow")
+
+        x = F.pad(concatenated, (0, padded_size-sz, 0, 0, 0, 0))
+        x = self.final_features(x)
+        # x = x.view([b, -1]).contiguous()
+
+        x = x.contiguous().transpose(1, 2)
+
+        # x = self.embedder(x)
+
+        return x
+
+
 class Encoder(nn.Module):
     def __init__(self, embed_dims, num_chars, encoder_dims, K, num_highways, dropout):
         super().__init__()
@@ -135,7 +196,7 @@ class CBHG(nn.Module):
 
         # Convolution Bank
         for conv in self.conv1d_bank:
-            c = conv(x) # Convolution
+            c = conv(x)  # Convolution
             conv_bank.append(c[:, :, :seq_len])
 
         # Stack along the channel axis
@@ -155,7 +216,8 @@ class CBHG(nn.Module):
         x = x.transpose(1, 2)
         if self.highway_mismatch is True:
             x = self.pre_highway(x)
-        for h in self.highways: x = h(x)
+        for h in self.highways:
+            x = h(x)
 
         # And then the RNN
         x, _ = self.rnn(x)
@@ -165,6 +227,7 @@ class CBHG(nn.Module):
         """Calls `flatten_parameters` on all the rnns used by the WaveRNN. Used
         to improve efficiency and avoid PyTorch yelling at us."""
         [m.flatten_parameters() for m in self._to_flatten]
+
 
 class PreNet(nn.Module):
     def __init__(self, in_dims, fc1_dims=256, fc2_dims=128, dropout=0.5):
@@ -207,7 +270,7 @@ class LSA(nn.Module):
         super().__init__()
         self.conv = nn.Conv1d(1, filters, padding=(kernel_size - 1) // 2, kernel_size=kernel_size, bias=True)
         self.L = nn.Linear(filters, attn_dim, bias=False)
-        self.W = nn.Linear(attn_dim, attn_dim, bias=True) # Include the attention bias in this term
+        self.W = nn.Linear(attn_dim, attn_dim, bias=True)  # Include the attention bias in this term
         self.v = nn.Linear(attn_dim, 1, bias=False)
         self.cumulative = None
         self.attention = None
@@ -220,7 +283,8 @@ class LSA(nn.Module):
 
     def forward(self, encoder_seq_proj, query, t, chars):
 
-        if t == 0: self.init_attention(encoder_seq_proj)
+        if t == 0:
+            self.init_attention(encoder_seq_proj)
 
         processed_query = self.W(query).unsqueeze(1)
 
@@ -231,7 +295,8 @@ class LSA(nn.Module):
         u = u.squeeze(-1)
 
         # Mask zero padding chars
-        u = u * (chars != 0).float()
+        if chars is not None:
+            u = u * (chars != 0).float()
 
         # Smooth Attention
         # scores = torch.sigmoid(u) / torch.sigmoid(u).sum(dim=1, keepdim=True)
@@ -246,6 +311,7 @@ class Decoder(nn.Module):
     # Class variable because its value doesn't change between classes
     # yet ought to be scoped by class because its a property of a Decoder
     max_r = 20
+
     def __init__(self, n_mels, encoder_dims, decoder_dims, lstm_dims,
                  dropout, speaker_embedding_size):
         super().__init__()
@@ -326,9 +392,9 @@ class Decoder(nn.Module):
 
 
 class Tacotron(nn.Module):
-    def __init__(self, embed_dims, num_chars, encoder_dims, decoder_dims, n_mels, 
+    def __init__(self, embed_dims, num_chars, encoder_dims, decoder_dims, n_mels,
                  fft_bins, postnet_dims, encoder_K, lstm_dims, postnet_K, num_highways,
-                 dropout, stop_threshold, speaker_embedding_size):
+                 dropout, stop_threshold, speaker_embedding_size, use_mel_inputs=False):
         super().__init__()
         self.n_mels = n_mels
         self.lstm_dims = lstm_dims
@@ -343,6 +409,9 @@ class Tacotron(nn.Module):
         self.postnet = CBHG(postnet_K, n_mels, postnet_dims,
                             [postnet_dims, fft_bins], num_highways)
         self.post_proj = nn.Linear(postnet_dims, fft_bins, bias=False)
+
+        if use_mel_inputs:
+            self.encoder.embedding = SynthEmbedding(self.encoder.embedding.embedding_dim)
 
         self.init_model()
         self.num_params()
@@ -362,7 +431,7 @@ class Tacotron(nn.Module):
         device = next(self.parameters()).device  # use same device as parameters
 
         self.step += 1
-        batch_size, _, steps  = m.size()
+        batch_size, _, steps = m.size()
 
         # Initialise all hidden states and pack into tuple
         attn_hidden = torch.zeros(batch_size, self.decoder_dims, device=device)
@@ -383,7 +452,11 @@ class Tacotron(nn.Module):
 
         # SV2TTS: Run the encoder with the speaker embedding
         # The projection avoids unnecessary matmuls in the decoder loop
-        encoder_seq = self.encoder(x, speaker_embedding)
+        if isinstance(self.encoder.embedding, SynthEmbedding):
+            encoder_seq = self.encoder(m, speaker_embedding)
+            x = None
+        else:
+            encoder_seq = self.encoder(x, speaker_embedding)
         encoder_seq_proj = self.encoder_proj(encoder_seq)
 
         # Need a couple of lists for outputs
@@ -418,7 +491,7 @@ class Tacotron(nn.Module):
         self.eval()
         device = next(self.parameters()).device  # use same device as parameters
 
-        batch_size, _  = x.size()
+        batch_size, _ = x.size()
 
         # Need to initialise all hidden states and pack into tuple for tidyness
         attn_hidden = torch.zeros(batch_size, self.decoder_dims, device=device)
@@ -449,13 +522,14 @@ class Tacotron(nn.Module):
         for t in range(0, steps, self.r):
             prenet_in = mel_outputs[-1][:, :, -1] if t > 0 else go_frame
             mel_frames, scores, hidden_states, cell_states, context_vec, stop_tokens = \
-            self.decoder(encoder_seq, encoder_seq_proj, prenet_in,
-                         hidden_states, cell_states, context_vec, t, x)
+                self.decoder(encoder_seq, encoder_seq_proj, prenet_in,
+                             hidden_states, cell_states, context_vec, t, x)
             mel_outputs.append(mel_frames)
             attn_scores.append(scores)
             stop_outputs.extend([stop_tokens] * self.r)
             # Stop the loop when all stop tokens in batch exceed threshold
-            if (stop_tokens > 0.5).all() and t > 10: break
+            if (stop_tokens > 0.5).all() and t > 10:
+                break
 
         # Concat the mel outputs into sequence
         mel_outputs = torch.cat(mel_outputs, dim=2)
@@ -463,7 +537,6 @@ class Tacotron(nn.Module):
         # Post-Process for Linear Spectrograms
         postnet_out = self.postnet(mel_outputs)
         linear = self.post_proj(postnet_out)
-
 
         linear = linear.transpose(1, 2)
 
@@ -477,7 +550,8 @@ class Tacotron(nn.Module):
 
     def init_model(self):
         for p in self.parameters():
-            if p.dim() > 1: nn.init.xavier_uniform_(p)
+            if p.dim() > 1:
+                nn.init.xavier_uniform_(p)
 
     def get_step(self):
         return self.step.data.item()
@@ -509,7 +583,6 @@ class Tacotron(nn.Module):
             torch.save({
                 "model_state": self.state_dict(),
             }, str(path))
-
 
     def num_params(self, print_out=True):
         parameters = filter(lambda p: p.requires_grad, self.parameters())

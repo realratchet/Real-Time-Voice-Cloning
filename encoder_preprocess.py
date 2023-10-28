@@ -55,7 +55,7 @@ if __name__ == "__main__":
     args.datasets = args.datasets.split(",")
     if not hasattr(args, "out_dir"):
         args.out_dir = args.datasets_root.joinpath("SV2TTS", "encoder")
-    assert args.datasets_root.exists()
+    assert args.datasets_root.exists(), f"'{args.datasets_root}' does not exist"
     args.out_dir.mkdir(exist_ok=True, parents=True)
 
     # Preprocess the datasets

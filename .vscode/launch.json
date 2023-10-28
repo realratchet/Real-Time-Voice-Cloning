@@ -1,0 +1,115 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Convert files",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/convert_files.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "[Synth] Preprocess - Synth Audio",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/synthesizer_preprocess_audio.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "/media/ratchet/hdd/Dataset/VoiceClone/Train",
+            ]
+        },
+        {
+            "name": "[Synth] Preprocess - Liepa",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/synthesizer_preprocess_audio_liepa.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": []
+        },
+        {
+            "name": "[Encoder] Train - Liepa",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/encoder_train.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "liepa2",
+                "/media/ratchet/hdd/Dataset/liepa2-corpus/result/mels/",
+                "--no_visdom"
+            ]
+        },
+        {
+            "name": "[Synth] Train - Liepa",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/synthesizer_train.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "liepa2_2",
+                "/media/ratchet/hdd/Dataset/liepa2-corpus/result",
+                // "--no_visdom"
+            ]
+        },
+        {
+            "name": "[Embeds] Preprocess - Liepa",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/synthesizer_preprocess_embeds.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "/media/ratchet/hdd/Dataset/liepa2-corpus/result",
+                "-e",
+                "saved_models/liepa2/encoder.pt"
+            ]
+        },
+        {
+            "name": "[Vocoder] Preprocess - Liepa",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/vocoder_preprocess.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "/media/ratchet/hdd/Dataset/liepa2-corpus/result",
+                "-s",
+                "saved_models/liepa2/synthesizer.pt"
+            ]
+        },
+        {
+            "name": "[Vocoder] Train - Liepa",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/vocoder_train.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "liepa2",
+                "/media/ratchet/hdd/Dataset/liepa2-corpus/result",
+                // "--no_visdom"
+            ],
+        },
+        {
+            "name": "Demo CLI",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/demo_cli.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                // "liepa2",
+                // "/media/ratchet/hdd/Dataset/liepa2-corpus/result",
+                // "--no_visdom"
+                "-s", "saved_models/liepa2_2/synthesizer.pt"
+            ],
+        },
+    ]
+}

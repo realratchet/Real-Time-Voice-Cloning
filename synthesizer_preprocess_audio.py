@@ -1,5 +1,5 @@
 from synthesizer.preprocess import preprocess_dataset
-from synthesizer.hparams import hparams
+from synthesizer.hparams import synth_hparams
 from utils.argutils import print_args
 from pathlib import Path
 import argparse
@@ -43,5 +43,5 @@ if __name__ == "__main__":
 
     # Preprocess the dataset
     print_args(args, parser)
-    args.hparams = hparams.parse(args.hparams)
+    args.hparams = synth_hparams.parse(args.hparams)
     preprocess_dataset(**vars(args))

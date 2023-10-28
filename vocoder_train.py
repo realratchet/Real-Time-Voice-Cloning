@@ -42,9 +42,9 @@ if __name__ == "__main__":
 
     # Process the arguments
     if not hasattr(args, "syn_dir"):
-        args.syn_dir = args.datasets_root / "SV2TTS" / "synthesizer"
+        args.syn_dir = args.datasets_root
     if not hasattr(args, "voc_dir"):
-        args.voc_dir = args.datasets_root / "SV2TTS" / "vocoder"
+        args.voc_dir = args.datasets_root
     del args.datasets_root
     args.models_dir.mkdir(exist_ok=True)
 
