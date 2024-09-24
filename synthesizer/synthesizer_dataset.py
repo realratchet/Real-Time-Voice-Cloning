@@ -1,4 +1,5 @@
 import torch
+import random
 from torch.utils.data import Dataset
 import numpy as np
 from pathlib import Path
@@ -9,13 +10,13 @@ from synthesizer.utils.text import text_to_sequence
 class SynthesizerDataset(Dataset):
     def __init__(self, metadata_fpath: Path, mel_dir: Path, embed_dir: Path, hparams):
         print("Using inputs from:\n\t%s\n\t%s\n\t%s" % (metadata_fpath, mel_dir, embed_dir))
-        
+
         with metadata_fpath.open("r") as metadata_file:
             metadata = [line.split("|") for line in metadata_file]
 
         if hparams.reduced_dataset:
             metadata = metadata[0:1000]
-        
+
         mel_fnames = [x[1] for x in metadata if int(x[4])]
         mel_fpaths = [mel_dir.joinpath(fname) for fname in tqdm(mel_fnames, desc="mel paths")]
         embed_fnames = [x[2] for x in metadata if int(x[4])]
@@ -24,10 +25,13 @@ class SynthesizerDataset(Dataset):
         self.samples_texts = [x[5].strip() for x in metadata if int(x[4])]
         self.metadata = metadata
         self.hparams = hparams
-        
+
+        if self.hparams["use_mel_inputs"] and self.hparams["use_ozelis"]:
+            self.samples_fpaths_healthy = [(i, p, e) for i, (p, e) in enumerate(self.samples_fpaths) if p.parent.name == "group_0"]
+
         print("Found %d samples" % len(self.samples_fpaths))
-    
-    def __getitem__(self, index):  
+
+    def __getitem__(self, index):
         # Sometimes index may be a list of 2 (not sure why this happens)
         # If that is the case, return a single item corresponding to first element in index
         if index is list:
@@ -35,17 +39,36 @@ class SynthesizerDataset(Dataset):
 
         mel_path, embed_path = self.samples_fpaths[index]
         mel = np.load(mel_path).T.astype(np.float32)
-        
+
+        true_index = index
+
+        if self.hparams["use_mel_inputs"] and self.hparams["use_ozelis"]:
+            if mel_path.parent.name != "group_0":
+                healthy_index, mel_path_healthy, _ = random.choice(self.samples_fpaths_healthy)
+
+                mel_healthy = np.load(mel_path_healthy).T.astype(np.float32)
+                max_shape = max(mel.shape[-1], mel_healthy.shape[-1])
+
+                mel = pad2d(mel, max_shape)
+                mel_healthy = pad2d(mel_healthy, max_shape)
+                true_index = healthy_index
+
+                _, embed_path = self.samples_fpaths[true_index]
+            else:
+                mel_healthy = mel
+        else:
+            mel_healthy = None
+
         # Load the embed
         embed = np.load(embed_path)
 
         # Get the text and clean it
         text = text_to_sequence(self.samples_texts[index], self.hparams.tts_cleaner_names)
-        
+
         # Convert the list returned by text_to_sequence to a numpy array
         text = np.asarray(text).astype(np.int32)
 
-        return text, mel.astype(np.float32), embed.astype(np.float32), index
+        return text, mel, embed.astype(np.float32), true_index, mel_healthy
 
     def __len__(self):
         return len(self.samples_fpaths)
@@ -60,20 +83,30 @@ def collate_synthesizer(batch, r, hparams):
     chars = np.stack(chars)
 
     # Mel spectrogram
-    spec_lens = [x[1].shape[-1] for x in batch]
-    max_spec_len = max(spec_lens) + 1 
-    if max_spec_len % r != 0:
-        max_spec_len += r - max_spec_len % r 
+    def _batch_mels(idx):
+        spec_lens = [x[idx].shape[-1] for x in batch]
+        max_spec_len = max(spec_lens) + 1
+        if max_spec_len % r != 0:
+            max_spec_len += r - max_spec_len % r
 
-    # WaveRNN mel spectrograms are normalized to [0, 1] so zero padding adds silence
-    # By default, SV2TTS uses symmetric mels, where -1*max_abs_value is silence.
-    if hparams.symmetric_mels:
-        mel_pad_value = -1 * hparams.max_abs_value
+        # WaveRNN mel spectrograms are normalized to [0, 1] so zero padding adds silence
+        # By default, SV2TTS uses symmetric mels, where -1*max_abs_value is silence.
+        if hparams.symmetric_mels:
+            mel_pad_value = -1 * hparams.max_abs_value
+        else:
+            mel_pad_value = 0
+
+        mel = [pad2d(x[idx], max_spec_len, pad_value=mel_pad_value) for x in batch]
+        mel = np.stack(mel)
+
+        return mel
+
+    mel = _batch_mels(1)
+
+    if hparams["use_mel_inputs"] and hparams["use_ozelis"]:
+        mel_healthy = torch.tensor(_batch_mels(4))
     else:
-        mel_pad_value = 0
-
-    mel = [pad2d(x[1], max_spec_len, pad_value=mel_pad_value) for x in batch]
-    mel = np.stack(mel)
+        mel_healthy = None
 
     # Speaker embedding (SV2TTS)
     embeds = np.array([x[2] for x in batch])
@@ -81,16 +114,17 @@ def collate_synthesizer(batch, r, hparams):
     # Index (for vocoder preprocessing)
     indices = [x[3] for x in batch]
 
-
     # Convert all to tensor
     chars = torch.tensor(chars).long()
     mel = torch.tensor(mel)
     embeds = torch.tensor(embeds)
 
-    return chars, mel, embeds, indices
+    return chars, mel, embeds, indices, mel_healthy
+
 
 def pad1d(x, max_len, pad_value=0):
     return np.pad(x, (0, max_len - len(x)), mode="constant", constant_values=pad_value)
+
 
 def pad2d(x, max_len, pad_value=0):
     return np.pad(x, ((0, 0), (0, max_len - x.shape[-1])), mode="constant", constant_values=pad_value)

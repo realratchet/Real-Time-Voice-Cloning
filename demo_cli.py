@@ -37,6 +37,8 @@ if __name__ == '__main__':
         "If True, audio won't be played.", default=True)
     parser.add_argument("--seed", type=int, default=None, help=\
         "Optional random number seed value to make toolbox deterministic.")
+    parser.add_argument("--hparams", default="", help=\
+        "Hyperparameter overrides as a comma-separated list of name=value pairs")
     args = parser.parse_args()
     arg_dict = vars(args)
     print_args(args, parser)
@@ -121,6 +123,7 @@ if __name__ == '__main__':
 
     print("All test passed! You can now synthesize speech.\n\n")
 
+    import time
 
     ## Interactive speech generation
     print("This is a GUI-less example of interface to SV2TTS. The purpose of this script is to "
@@ -151,7 +154,9 @@ if __name__ == '__main__':
             # Then we derive the embedding. There are many functions and parameters that the
             # speaker encoder interfaces. These are mostly for in-depth research. You will typically
             # only use this function (with its default parameters):
+            time_ = time.time()
             embed = encoder.embed_utterance(preprocessed_wav)
+            print(f"encoder: {time.time() - time_}")
             print("Created the embedding")
 
             if isinstance(synthesizer._model.encoder.embedding, SynthEmbedding):
@@ -163,7 +168,9 @@ if __name__ == '__main__':
                 model = synthesizer._model.eval()
 
                 with torch.no_grad():
+                    time_ = time.time()
                     specs, *_ = model(None, mel_spectrogram, embed)
+                    print(f"synth: {time.time() - time_}")
                 specs = specs.cpu().numpy()
             else:
                 ## Generating the spectrogram
@@ -182,6 +189,8 @@ if __name__ == '__main__':
                 specs = synthesizer.synthesize_spectrograms(texts, embeds)
 
             spec = specs[0]
+            wav = audio.inv_mel_spectrogram(spec, synth_hparams)
+            audio.save_wav(wav, ("synth_output_%02d.wav" % num_generated), sr=sampling_rate)
             print("Created the mel spectrogram")
 
             ## Generating the waveform
@@ -194,7 +203,9 @@ if __name__ == '__main__':
 
             # Synthesizing the waveform is fairly straightforward. Remember that the longer the
             # spectrogram, the more time-efficient the vocoder.
+            time_ = time.time()
             generated_wav = vocoder.infer_waveform(spec)
+            print(f"vocoder: {time.time() - time_}")
 
 
             ## Post-generation

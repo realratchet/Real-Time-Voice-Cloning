@@ -43,6 +43,7 @@ def run_synthesis(in_dir: Path, out_dir: Path, syn_model_fpath: Path, hparams):
                      num_highways=hparams.tts_num_highways,
                      dropout=0., # Use zero dropout for gta mels
                      stop_threshold=hparams.tts_stop_threshold,
+                     use_mel_inputs=hparams.use_mel_inputs,
                      speaker_embedding_size=hparams.speaker_embedding_size).to(device)
 
     # Load the weights
@@ -68,7 +69,7 @@ def run_synthesis(in_dir: Path, out_dir: Path, syn_model_fpath: Path, hparams):
     # Generate GTA mels
     meta_out_fpath = out_dir / "synthesized.txt"
     with meta_out_fpath.open("w") as file:
-        for i, (texts, mels, embeds, idx) in tqdm(enumerate(data_loader), total=len(data_loader)):
+        for i, (texts, mels, embeds, idx, healthy) in tqdm(enumerate(data_loader), total=len(data_loader)):
             texts, mels, embeds = texts.to(device), mels.to(device), embeds.to(device)
 
             # Parallelize model onto GPUS using workaround due to python bug

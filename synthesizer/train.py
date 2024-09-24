@@ -145,15 +145,18 @@ def train(run_id: str, syn_dir: Path, models_dir: Path, save_every: int,  backup
         epochs = np.ceil(training_steps / steps_per_epoch).astype(np.int32)
 
         for epoch in range(1, epochs+1):
-            for i, (texts, mels, embeds, idx) in enumerate(data_loader, 1):
+            for i, (texts, mels, embeds, idx, mels_healthy) in enumerate(data_loader, 1):
                 start_time = time.time()
 
+                mels_gt = (mels_healthy if mels_healthy is not None else mels).to(device)
+
                 # Generate stop tokens for training
-                stop = torch.ones(mels.shape[0], mels.shape[2])
+                stop = torch.ones(mels_gt.shape[0], mels_gt.shape[2])
                 for j, k in enumerate(idx):
                     stop[j, :int(dataset.metadata[k][4])-1] = 0
 
                 mels = mels.to(device)
+                
                 embeds = embeds.to(device)
                 stop = stop.to(device)
 
@@ -172,8 +175,8 @@ def train(run_id: str, syn_dir: Path, models_dir: Path, save_every: int,  backup
                     m1_hat, m2_hat, attention, stop_pred = model(texts, mels, embeds)
 
                 # Backward pass
-                m1_loss = F.mse_loss(m1_hat, mels) + F.l1_loss(m1_hat, mels)
-                m2_loss = F.mse_loss(m2_hat, mels)
+                m1_loss = F.mse_loss(m1_hat, mels_gt) + F.l1_loss(m1_hat, mels_gt)
+                m2_loss = F.mse_loss(m2_hat, mels_gt)
                 stop_loss = F.binary_cross_entropy(stop_pred, stop)
 
                 loss = m1_loss + m2_loss + stop_loss
@@ -218,7 +221,7 @@ def train(run_id: str, syn_dir: Path, models_dir: Path, save_every: int,  backup
                             # Remove padding from mels using frame length in metadata
                             mel_length = int(dataset.metadata[idx[sample_idx]][4])
                             mel_prediction = np_now(m2_hat[sample_idx]).T[:mel_length]
-                            target_spectrogram = np_now(mels[sample_idx]).T[:mel_length]
+                            target_spectrogram = np_now(mels_gt[sample_idx]).T[:mel_length]
                             attention_len = mel_length // model.r
 
                             eval_model(attention=np_now(attention[sample_idx][:, :attention_len]),

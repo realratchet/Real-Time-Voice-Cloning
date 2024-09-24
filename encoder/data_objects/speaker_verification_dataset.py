@@ -1,9 +1,11 @@
 from encoder.data_objects.random_cycler import RandomCycler
 from encoder.data_objects.speaker_batch import SpeakerBatch
-from encoder.data_objects.speaker import Speaker
+from encoder.data_objects.speaker import Speaker, OzelisSpeaker
 from encoder.params_data import partials_n_frames
 from torch.utils.data import Dataset, DataLoader
+from encoder.data_objects.utterance import Utterance
 from pathlib import Path
+from itertools import chain
 
 # TODO: improve with a pool of speakers for data efficiency
 
@@ -29,7 +31,43 @@ class SpeakerVerificationDataset(Dataset):
             with log_fpath.open("r") as log_file:
                 log_string += "".join(log_file.readlines())
         return log_string
+
+class OzelisVerificationDataset(Dataset):
+    def __init__(self, datasets_root: Path):
+        self.root = datasets_root
+        speaker_dirs = [f for f in self.root.glob("*") if f.is_dir()]
+        if len(speaker_dirs) == 0:
+            raise Exception("No speakers found. Make sure you are pointing to the directory "
+                            "containing all preprocessed speaker directories.")
+        speaker_groups = {
+            grp.name: [f for f in grp.glob("*.npy") if f.is_file()]
+            for grp in speaker_dirs
+        }
+
+        healthy_speakers = speaker_groups["group_0"]
+        healthy_udders = [Utterance(f, None) for f in healthy_speakers]
+
+        1
+
+        self.speakers = [
+            OzelisSpeaker(speakers, None) if grp == "group_0" else OzelisSpeaker(speakers, healthy_udders)
+            for grp, speakers in speaker_groups.items()
+        ]
+
+        # self.speaker_cycler = RandomCycler(list(chain.from_iterable(self.speaker_groups.values())))
+
+    def __len__(self):
+        return int(1e10)
+        
+    def __getitem__(self, index):
+        return next(self.speaker_cycler)
     
+    def get_logs(self):
+        log_string = ""
+        for log_fpath in self.root.glob("*.txt"):
+            with log_fpath.open("r") as log_file:
+                log_string += "".join(log_file.readlines())
+        return log_string
     
 class SpeakerVerificationDataLoader(DataLoader):
     def __init__(self, dataset, speakers_per_batch, utterances_per_speaker, sampler=None, 

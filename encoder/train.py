@@ -1,8 +1,9 @@
+import os
 from pathlib import Path
 
 import torch
 
-from encoder.data_objects import SpeakerVerificationDataLoader, SpeakerVerificationDataset
+from encoder.data_objects import SpeakerVerificationDataLoader, SpeakerVerificationDataset, OzelisVerificationDataset
 from encoder.model import SpeakerEncoder
 from encoder.params_model import *
 from encoder.visualizations import Visualizations
@@ -19,7 +20,8 @@ def train(run_id: str, clean_data_root: Path, models_dir: Path, umap_every: int,
           backup_every: int, vis_every: int, force_restart: bool, visdom_server: str,
           no_visdom: bool):
     # Create a dataset and a dataloader
-    dataset = SpeakerVerificationDataset(clean_data_root)
+    use_ozelis = True if os.getenv("use_ozelis", "false").lower() == "true" else False
+    dataset = OzelisVerificationDataset(clean_data_root) if use_ozelis else SpeakerVerificationDataset(clean_data_root)
     loader = SpeakerVerificationDataLoader(
         dataset,
         speakers_per_batch,
@@ -36,7 +38,7 @@ def train(run_id: str, clean_data_root: Path, models_dir: Path, umap_every: int,
 
     # Create the model and the optimizer
     model = SpeakerEncoder(device, loss_device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate_init)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate_init, amsgrad=True)
     init_step = 1
 
     # Configure file path for the model

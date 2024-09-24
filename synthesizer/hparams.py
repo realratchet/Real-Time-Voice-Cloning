@@ -1,3 +1,4 @@
+import os
 import ast
 import pprint
 
@@ -22,6 +23,7 @@ synth_hparams = HParams(
 
         reduced_dataset = False,
         use_mel_inputs = True,
+        use_ozelis = True if os.getenv("use_ozelis", "false").lower() == "true" else False,
 
         ### Signal Processing (used in both synthesizer and vocoder)
         sample_rate = 16000,

@@ -5,6 +5,14 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Fix files",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/media/ratchet/hdd/Dataset/liepa2-corpus/cml_compliant_liepa2/fix_file.py",
+            "console": "integratedTerminal",
+            "cwd": "/media/ratchet/hdd/Dataset/liepa2-corpus/cml_compliant_liepa2"
+        },
+        {
             "name": "Python: Convert files",
             "type": "python",
             "request": "launch",
@@ -40,10 +48,14 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
-                "liepa2",
-                "/media/ratchet/hdd/Dataset/liepa2-corpus/result/mels/",
+                "liepa2_oz",
+                // "/media/ratchet/hdd/Dataset/liepa2-corpus/result/mels/",
+                "/media/ratchet/hdd/Dataset/voice-oz/result/mels/",
                 "--no_visdom"
-            ]
+            ],
+            "env": {
+                "use_ozelis": "false"
+            }
         },
         {
             "name": "[Synth] Train - Liepa",
@@ -53,8 +65,10 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
-                "liepa2_2",
-                "/media/ratchet/hdd/Dataset/liepa2-corpus/result",
+                "liepa2_phonemes",
+                "/media/ratchet/hdd/Dataset/liepa2-corpus/cml_compliant_liepa2_result/",
+                // "ozelis",
+                // "/media/ratchet/hdd/Dataset/voice-oz/result",
                 // "--no_visdom"
             ]
         },
@@ -66,7 +80,8 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
-                "/media/ratchet/hdd/Dataset/liepa2-corpus/result",
+                // "/media/ratchet/hdd/Dataset/liepa2-corpus/result",
+                "/media/ratchet/hdd/Dataset/voice-oz/result",
                 "-e",
                 "saved_models/liepa2/encoder.pt"
             ]
@@ -79,9 +94,9 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
-                "/media/ratchet/hdd/Dataset/liepa2-corpus/result",
+                "/media/ratchet/hdd/Dataset/liepa2-corpus/cml_compliant_liepa2_result",
                 "-s",
-                "saved_models/liepa2/synthesizer.pt"
+                "saved_models/liepa2_phonemes/synthesizer.pt"
             ]
         },
         {
@@ -108,7 +123,9 @@
                 // "liepa2",
                 // "/media/ratchet/hdd/Dataset/liepa2-corpus/result",
                 // "--no_visdom"
-                "-s", "saved_models/liepa2_2/synthesizer.pt"
+                "-s",
+                "saved_models/ozelis/synthesizer.pt"
+                // "-s", "saved_models/liepa2_2/synthesizer.pt"
             ],
         },
     ]

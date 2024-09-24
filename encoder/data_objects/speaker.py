@@ -2,6 +2,10 @@ from encoder.data_objects.random_cycler import RandomCycler
 from encoder.data_objects.utterance import Utterance
 from pathlib import Path
 
+class OzelisSpeaker:
+    def __init__(self, udder, healthy_udders) -> None:
+        pass
+
 # Contains the set of utterances of a single speaker
 class Speaker:
     def __init__(self, root: Path):
