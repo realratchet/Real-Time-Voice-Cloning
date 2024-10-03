@@ -16,5 +16,5 @@ _phonemes_lt = "\u0020\u0021\u0028\u0029\u002c\u002e\u003a\u003b\u003f\u005b\u00
 #_arpabet = ["@' + s for s in cmudict.valid_symbols]
 
 # Export all symbols:
-# symbols = [_pad, _eos] + list(_characters_lt) #+ _arpabet
-symbols = [_pad, _eos] + list(_phonemes_lt)
+symbols = [_pad, _eos] + list(_characters_lt) #+ _arpabet
+# symbols = [_pad, _eos] + list(_phonemes_lt)

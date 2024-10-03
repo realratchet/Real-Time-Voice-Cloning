@@ -15,7 +15,7 @@ from synthesizer.utils.plot import plot_spectrogram
 from synthesizer.utils.symbols import symbols
 from synthesizer.utils.text import sequence_to_text
 from vocoder.display import *
-
+from torch.utils.tensorboard.writer import SummaryWriter
 
 def np_now(x: torch.Tensor): return x.detach().cpu().numpy()
 
@@ -41,6 +41,8 @@ def train(run_id: str, syn_dir: Path, models_dir: Path, save_every: int,  backup
 
     weights_fpath = model_dir / f"synthesizer.pt"
     metadata_fpath = syn_dir.joinpath("train.txt")
+
+    summary = SummaryWriter(model_dir / "logs")
 
     print("Checkpoint path: {}".format(weights_fpath))
     print("Loading training data from: {}".format(metadata_fpath))
@@ -81,7 +83,7 @@ def train(run_id: str, syn_dir: Path, models_dir: Path, save_every: int,  backup
                      use_mel_inputs=hparams.use_mel_inputs).to(device)
 
     # Initialize the optimizer
-    optimizer = optim.Adam(model.parameters())
+    optimizer = optim.AdamW(model.parameters(), amsgrad=True)
 
     # Load the weights
     if force_restart or not weights_fpath.exists():
@@ -197,6 +199,12 @@ def train(run_id: str, syn_dir: Path, models_dir: Path, save_every: int,  backup
                 step = model.get_step()
                 k = step // 1000
 
+                summary.add_scalar("Synthesizer/Loss", loss, step)
+                summary.add_scalar("Synthesizer/Loss/M1", m1_loss, step)
+                summary.add_scalar("Synthesizer/Loss/M2", m2_loss, step)
+                summary.add_scalar("Synthesizer/Loss/Stop", stop_loss, step)
+                summary.add_scalar("Synthesizer/LR", optimizer.param_groups[0]["lr"], step)
+
                 msg = f"| Epoch: {epoch}/{epochs} ({i}/{steps_per_epoch}) | Loss: {loss_window.average:#.4} | " \
                       f"{1./time_window.average:#.2} steps/s | Step: {k}k | "
                 stream(msg)
@@ -242,6 +250,8 @@ def train(run_id: str, syn_dir: Path, models_dir: Path, save_every: int,  backup
 
             # Add line break after every epoch
             print("")
+
+    summary.close()
 
 
 def eval_model(attention, mel_prediction, target_spectrogram, input_seq, step,

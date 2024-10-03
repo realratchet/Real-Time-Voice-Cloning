@@ -13,7 +13,7 @@ from vocoder.distribution import discretized_mix_logistic_loss
 from vocoder.gen_wavernn import gen_testset
 from vocoder.models.fatchord_version import WaveRNN
 from vocoder.vocoder_dataset import VocoderDataset, collate_vocoder
-
+from torch.utils.tensorboard.writer import SummaryWriter
 
 def train(run_id: str, syn_dir: Path, voc_dir: Path, models_dir: Path, ground_truth: bool, save_every: int,
           backup_every: int, force_restart: bool):
@@ -41,7 +41,7 @@ def train(run_id: str, syn_dir: Path, voc_dir: Path, models_dir: Path, ground_tr
         model = model.cuda()
 
     # Initialize the optimizer
-    optimizer = optim.Adam(model.parameters())
+    optimizer = optim.AdamW(model.parameters(), amsgrad=True)
     for p in optimizer.param_groups:
         p["lr"] = hp.voc_lr
     loss_func = F.cross_entropy if model.mode == "RAW" else discretized_mix_logistic_loss
@@ -57,6 +57,8 @@ def train(run_id: str, syn_dir: Path, voc_dir: Path, models_dir: Path, ground_tr
         print("\nLoading weights at %s" % weights_fpath)
         model.load(weights_fpath, optimizer)
         print("WaveRNN weights loaded from step %d" % model.step)
+
+    summary = SummaryWriter(model_dir / "logs")
 
     # Initialize the dataset
     metadata_fpath = syn_dir.joinpath("train.txt") if ground_truth else \
@@ -101,6 +103,9 @@ def train(run_id: str, syn_dir: Path, voc_dir: Path, models_dir: Path, ground_tr
             step = model.get_step()
             k = step // 1000
 
+            summary.add_scalar("Vocoder/Loss", loss, step)
+            summary.add_scalar("Vocoder/LR", optimizer.param_groups[0]["lr"], step)
+
             if backup_every != 0 and step % backup_every == 0 :
                 model.checkpoint(model_dir, optimizer)
 
@@ -116,3 +121,5 @@ def train(run_id: str, syn_dir: Path, voc_dir: Path, models_dir: Path, ground_tr
         gen_testset(model, test_loader, hp.voc_gen_at_checkpoint, hp.voc_gen_batched,
                     hp.voc_target, hp.voc_overlap, model_dir)
         print("")
+
+    summary.close()

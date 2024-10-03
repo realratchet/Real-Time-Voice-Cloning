@@ -48,9 +48,10 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
-                "liepa2_oz",
+                "liepa2_phonemes_w",
                 // "/media/ratchet/hdd/Dataset/liepa2-corpus/result/mels/",
-                "/media/ratchet/hdd/Dataset/voice-oz/result/mels/",
+                // "/media/ratchet/hdd/Dataset/voice-oz/result/mels/",
+                "/media/ratchet/hdd/Dataset/liepa2-corpus/cml_compliant_liepa2_result/encoder",
                 "--no_visdom"
             ],
             "env": {
@@ -125,6 +126,22 @@
                 // "--no_visdom"
                 "-s",
                 "saved_models/ozelis/synthesizer.pt"
+                // "-s", "saved_models/liepa2_2/synthesizer.pt"
+            ],
+        },
+        {
+            "name": "Nearest speaker",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/nearest_speaker.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                // "liepa2",
+                // "/media/ratchet/hdd/Dataset/liepa2-corpus/result",
+                // "--no_visdom"
+                // "-s",
+                // "saved_models/ozelis/synthesizer.pt"
                 // "-s", "saved_models/liepa2_2/synthesizer.pt"
             ],
         },

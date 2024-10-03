@@ -8,7 +8,7 @@ from encoder.model import SpeakerEncoder
 from encoder.params_model import *
 from encoder.visualizations import Visualizations
 from utils.profiler import Profiler
-
+from torch.utils.tensorboard.writer import SummaryWriter
 
 def sync(device: torch.device):
     # For correct profiling (cuda operations are async)
@@ -45,6 +45,7 @@ def train(run_id: str, clean_data_root: Path, models_dir: Path, umap_every: int,
     model_dir = models_dir / run_id
     model_dir.mkdir(exist_ok=True, parents=True)
     state_fpath = model_dir / "encoder.pt"
+    summary = SummaryWriter(model_dir / "logs")
 
     # Load any existing model
     if not force_restart:
@@ -84,6 +85,10 @@ def train(run_id: str, clean_data_root: Path, models_dir: Path, umap_every: int,
         loss, eer = model.loss(embeds_loss)
         sync(loss_device)
         profiler.tick("Loss")
+
+        summary.add_scalar("Encoder/Loss", loss, step)
+        summary.add_scalar("Encoder/EER", eer, step)
+        summary.add_scalar("Encoder/LR", optimizer.param_groups[0]["lr"], step)
 
         # Backward pass
         model.zero_grad()
@@ -125,3 +130,5 @@ def train(run_id: str, clean_data_root: Path, models_dir: Path, umap_every: int,
             }, backup_fpath)
 
         profiler.tick("Extras (visualizations, saving)")
+
+    summary.close()
